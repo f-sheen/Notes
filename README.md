@@ -1,0 +1,1 @@
+My notes during the learning process
