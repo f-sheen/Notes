@@ -62,3 +62,4 @@
    - 新建分支：git checkout -b (分支名称)
    - 连接远程仓库：git remote add origin (远程仓库SSH链接)
    - 推送：git push -u origin main(第一次需要设置上游分支，后续直接 git push)
+   - 提示：开始一个git文件夹有两种，一种是上文提到的初始化开始，另一种是直接使用克隆git clone <远程仓库SSH链接>,这时后面就不需要连接远程仓库操作了
