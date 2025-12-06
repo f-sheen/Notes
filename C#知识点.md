@@ -248,4 +248,217 @@ bool isGreater = ts1 > ts2;                     // true
 
   
 
-## 6、
+## 6、模式匹配 + 作用域提升
+
+​	obj是object类型，无论实际存的是什么类型，编译器只知道它是 object。例如如果实际存的是List<T>类型，但是无法直接枚举
+​	
+
+```c#
+if (x is T y)
+{
+    // 前提：在这个 {} 块内，x 的类型是 T
+    //做了三件事，运行时检查-->（如果是目标类型）安全转换-->声明新变量y，类型为T 
+    //y的作用域只存在内部
+}
+```
+
+## 7、ASP.NET Core的启动
+
+- ### 启动流程
+
+  ```
+  Program.Main()
+  │
+  ├─ CreateHostBuilder() → 配置主机（日志、配置、Startup）
+  │
+  ├─ host.Build()
+  │   └─ 执行 Startup.ConfigureServices() → 注册所有服务 → 构建 DI 容器
+  │
+  └─ host.Run()
+      └─ 执行 Startup.Configure() → 构建中间件管道
+      └─ 启动 Kestrel → 开始处理 HTTP 请求
+  ```
+
+  1. 创建 HostBuilder，即CreateHostBuilder(args)：构建一个通用主机（Generic Host），包含 Web 功能（Kestrel、配置、日志等），他会创建一个 HostBuilder，自动注册基础服务，如：IConfiguration、IHostEnvironment、IHostApplicationLifetime、ILoggerFactory ，设置默认的配置源（如 appsettings.json、环境变量）
+
+  2. ConfigureWebHostDefaults()： ASP.NET Core 为 Web 应用提供的默认配置模板，它在通用主机（Generic Host）基础上，自动添加 Web 所需的功能：Kestrel 服务器、默认配置源（如 appsettings.json）、默认日志提供程序、注册 IWebHostEnvironment、支持 HTTPS、Startup 类等
+
+     - UseStartup<Startup>()：指定应用的启动类为 Startup（定义了 ConfigureServices 和 Configure）
+
+     - CaptureStartupErrors：启用 Startup 错误捕获，如果 Startup.Configure 方法抛出异常（比如中间件配置错误），Kestrel 不会直接崩溃。而是返回一个 500 Internal Server Error 页面（配合下一行可显示详细错误）。默认值：开发环境为 true，生产环境为 false
+
+     - UseSetting(WebHostDefaults.DetailedErrorsKey, "true")：启用 详细错误页面，当发生未处理异常时，浏览器会显示 完整的堆栈跟踪信息（而不仅是“An error occurred”）。⚠️ 安全提示：仅用于开发环境！ 生产环境应关闭，避免泄露敏感信息
+
+     - UseShutdownTimeout：设置应用优雅关闭的超时时间，当收到关闭信号（如 Ctrl+C、K8s SIGTERM），Web 主机会等待最多 10 秒让正在处理的请求完成。超时后强制终止
+
+     - ConfigureAppConfiguration：配置系统核心，加载 appsettings.json、环境变量、命令行参数等配置源
+
+       ```
+       //后加载的覆盖先加载的
+       appsettings.json 
+       ↓  
+       appsettings.{Environment}.json  
+       ↓  
+       环境变量  
+       ↓  
+       命令行参数
+       ```
+
+       
+
+     - ConfigureLogging：日志提供者配置
+
+  3. host.Build()：注册 Startup.ConfigureServices 所有服务，构建最终的 IServiceProvider（DI 容器），准备中间件管道（但尚未执行 Configure），此时 DI 容器已就绪，可通过 host.Services 访问
+
+  4. host.Run()：执行Startup.Configure()，配置 HTTP 请求管道（中间件），启动 Kestrel 服务器，监听端口，应用进入运行状态，可处理 HTTP 请求
+
+  5. 处理请求：当HTTP请求到达时，依次经过中间件（日志、CORS、认证等）-->路由到Controller-->DI 容器为本次请求创建 新的 Scope-->Controller 及其依赖被解析-->执行业务逻辑
+
+- ### ConfigureServices 
+
+  ​	ConfigureServices(IServiceCollection services) 方法是整个应用程序依赖注入（DI）容器配置的核心入口点。它的主要职责是：向 DI 容器注册服务（Services），以便在应用生命周期中通过构造函数注入等方式使用。
+
+  👽主要作用详解
+
+  1. 注册应用程序所需的服务
+
+     这是最核心的功能。你在这里告诉框架：
+
+     - 哪些类需要被创建和管理
+
+     - 它们的生命周期是怎样的（Singleton / Scoped / Transient）
+
+     - 接口和实现之间的映射关系是什么
+
+       ```c#
+       public void ConfigureServices(IServiceCollection services)
+       {
+           // 注册自定义服务
+           services.AddScoped<IUserService, UserService>();
+       }
+       ```
+
+       
+
+  2. 配置框架内置功能
+
+     ASP.NET Core 的很多功能都是“可选中间件 + 服务注册”模式。你需要在这里“开启”它们，ConfigureServices 只负责“注册服务”，不负责“启用中间件”。中间件是在 Configure 方法中通过 app.UseXXX() 启用的
+
+     <img src="E:\Notes\笔记图片\配置框架内置功能.png" style="zoom:25%;" />
+
+  3. 读取配置（Configuration）
+
+     你可以通过 IConfiguration（通常通过构造函数注入到 Startup）来读取 appsettings.json、环境变量等配置，并用于服务注册。
+
+  4. 设置服务生命周期
+     通过以下方法指定服务的生命周期：AddTransient、AddScoped、AddSingleton
+
+  5. 集成第三方库或自定义扩展
+
+     很多第三方库（如 AutoMapper、MediatR、FluentValidation）或你自己封装的模块，都会提供 IServiceCollection 扩展方法，在这里调用
+
+     ```c#
+     services.AddAutoMapper(typeof(Startup));
+     services.AddMediatR(typeof(Startup));
+     services.AddFluentValidation();
+     ```
+
+- ### Configure
+
+## 8、生命周期
+
+​	服务的生命周期（Service Lifetime） 决定了：服务实例何时被创建、被谁共享、何时被释放
+
+1. Transient（瞬态）
+
+   创建规则：
+
+   - 每次请求服务时，都创建一个新实例
+   - 即使在同一作用域（如同一个 HTTP 请求）内多次请求，也会得到不同实例
+   - 用完就扔，次次新鲜
+
+   应用场景：
+
+   - 无状态、轻量级、线程安全的服务
+   - 每次操作需要独立状态（如生成唯一 ID、临时计算）
+   - 工具类（Utility）、映射器（Mapper）、工厂（Factory）
+
+   注意事项：
+
+   - 不适合持有昂贵资源（如数据库连接），因为频繁创建/销毁开销大
+   - 如果注入到 Scoped 或 Singleton 服务中，会导致“捕获瞬态服务”问题（可能引发内存泄漏或状态错误）
+
+2. Scoped（作用域）
+
+   创建规则：
+
+   - 每个作用域（Scope）内只创建一次实例
+
+   - 在 ASP.NET Core 中，每个 HTTP 请求 = 一个作用域
+
+     ​	同一请求内的所有 Scoped 服务共享同一个实例，不同请求之间实例彼此隔离
+
+   - 一次请求，一个实例
+
+   应用场景：
+
+   - Entity Framework 的 DbContext：保证一个请求内使用同一个数据库上下文，支持事务和变更跟踪
+   - 用户会话相关服务（如当前用户信息、租户上下文）
+   - 需要在单次请求中保持状态一致性的服务
+
+   注意事项：
+
+   - 不能从 Singleton 服务中注入 Scoped 服务（会报错或导致 Scoped 实例被提升为“伪单例”）
+   - 在非 Web 场景（如后台服务）中，需手动创建作用域
+
+3. Singleton（单例）
+
+   创建规则：
+
+   - 整个应用程序生命周期内只创建一次实例
+   - 所有请求、所有线程共享同一个对象
+   - 全局唯一，小心并发
+
+   应用场景：
+
+   - 全局共享、无状态、线程安全的服务
+   - 缓存管理器（如 MemoryCache）
+   - 日志记录器（ILogger 通常是单例包装）
+   - 配置提供者（IOptions）
+   - 连接池、计数器、全局状态管理器（需线程安全！）
+
+   注意事项：
+
+   - 必须是线程安全的！ 多个请求并发访问同一个实例
+   - 不能持有或依赖 Scoped / Transient 服务（会导致状态污染或内存泄漏）
+   - 避免在单例中存储用户特定数据（会跨用户共享！）
+
+   生命周期依赖关系
+   服务可以依赖生命周期等于或更长的服务，但不能依赖更短的，Singleton ≥ Scoped ≥ Transient
+
+## 9、一些问题
+
+- **问题一：注册≠实例化**
+
+  ​	对于services.AddScoped<T>(x => { ... });在应用启动时 不会执行 lambda 体（即 { ... } 中的代码），但 服务注册本身是成功的
+
+  - *注册：*发生在 Startup.ConfigureServices 或 Program.cs 中，只是告诉 DI 容器：“如果有人要 IQuestDb，就用这个工厂方法创建”
+  - *实例化：*发生在第一次有代码请求 IQuestDb 时（比如 Controller 构造函数注入），此时才会执行 sp => { ... }
+
+  当某个类（如 QuestDbTestController）通过构造函数注入 IQuestDb 时
+
+  ```c#
+  public QuestDbTestController(IQuestDb questDb) // ← 这里触发
+  ```
+
+  DI 容器发现：“哦，需要 IQuestDb，我有一个注册的工厂方法！”
+  于是 在这个 HTTP 请求的作用域内，第一次 调用你的 lambda，执行 { ... }，返回实例。
+  同一个请求中后续再注入 IQuestDb，会复用同一个实例（Scoped 特性）。
+
+  AddScoped 的生命周期是 “每个作用域一个实例”
+  在 ASP.NET Core 中，每个 HTTP 请求 = 一个独立的作用域（scope）
+  所以：第 1 个请求 → 执行 lambda 1 次；第 2 个请求 → 再执行 lambda 1 次；第 N 个请求 → 执行第 N 次
+
+  
+
+- 问题二：
