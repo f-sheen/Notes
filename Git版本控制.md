@@ -1,68 +1,96 @@
 # Git版本控制
 
-1. ### 选择远程仓库（GitHub、Gitee、GitCode、GitLab）
+1. ### 安装Git
 
-2. ### 新建仓库
+2. ### 注册远程仓库（GitHub、Gitee、GitCode、GitLab）
 
-   默认不勾选README.md选项
+3. ### 新建仓库
 
-3. ### 获取SSH keys
+   ​	默认不勾选README.md选项
 
-   输入 cd ~/.ssh，返回"no such file or directory"表明电脑没有ssh key，需要创建ssh key，然后输入 ssh-keygen -t rsa -C “git账号”，输入之后一路（三次）Enter（确认）就可以了，按路径进入.ssh，里面存储的是两个ssh key的秘钥，id\_rsa.pub文件里面存储的是公钥，id\_rsa文件里存储的是私钥，不能告诉别人（也可以输入cat ~/.ssh/id_rsa.pub获取）。打开id\_rsa.pub文件，复制里面的内容。如果要生成多对密钥对，输入ssh-keygen -t rsa -b 4096 -C "git账号"（4096代表密钥更复杂，可选），提示输入保存路径Enter file in which to save the key (/c/Users/YourName/.ssh/id_rsa): /c/Users/YourName/.ssh/id_rsa_new，编辑SSH配置文件（输入nano ~/.ssh/config），添加以下内容
+4. ### 远程连接 GitHub 有两种传输协议
 
-   ```
-   # 公司 GitLab 账户（使用默认密钥）
-   Host company-gitlab #公司gitlab地址
-       HostName company-gitlab #公司gitlab地址
-       User git
-       IdentityFile ~/.ssh/id_rsa
-   
-   # 个人 GitHub 账户（使用新密钥）
-   Host personal-github 
-       HostName personal-github  
-       User git
-       IdentityFile ~/.ssh/id_rsa_new
-   ```
+   - *HTTPS：*需要个人访问令牌。即使没有配置个人访问令牌，也是可以 git clone 的，但是 git push 的时候需要输入用户名和个人访问令牌，由于访问 GitHub 的网络原因，走 HTTPS 协议可能会出现 git push 失败。如果是自己的个人项目，建议走 SSH 协议
+   - *SSH：*需要密钥对。如果没有配置密钥对，既不能 git clone，也不能 git push
 
-   可能出现的问题：无法连接到远程仓库
+5. ### 基于 SSH 协议配置 Git 连接 GitHub
 
-   ```
-   Host github.com  #别名/匹配模式，根据远程仓库地址，匹配对应的Host配置
-       HostName ssh.github.com  #实际连接地址
-       User git
-       Port 443
-       IdentityFile ~/.ssh/id_rsa_new
-       TCPKeepAlive yes
-       IdentitiesOnly yes
-   ```
+   - 为本机生成 SSH 密钥对
 
-   验证连接（ssh -T git@github.com）
-
-4. ### 个人配置
-
-   - 全局配置：
+     ​	输入 cd ~/.ssh，返回"no such file or directory"表明电脑没有ssh key，需要创建ssh key，然后输入 ssh-keygen -t rsa -C “本机标识”，输入之后一路（三次）Enter（确认）就可以了，按路径进入.ssh，里面存储的是两个ssh key的秘钥，id\_rsa.pub文件里面存储的是公钥，id\_rsa文件里存储的是私钥，不能告诉别人（也可以输入cat ~/.ssh/id_rsa.pub获取）。打开id\_rsa.pub文件，复制里面的内容。如果要生成多对密钥对，输入ssh-keygen -t rsa -b 4096 -C "本机标识"（4096代表密钥更复杂，可选）
+     ​	如果需要多个仓库可以编辑SSH配置文件（输入nano ~/.ssh/config），添加以下内容
 
      ```
-     git config --global user.name "用户名"
-     git config --global user.email "邮箱"
+     # 公司 GitLab 账户（使用默认密钥）
+     Host company-gitlab #公司gitlab地址
+         HostName company-gitlab #公司gitlab地址
+         User git
+         IdentityFile ~/.ssh/id_rsa
+     
+     # 个人 GitHub 账户（使用新密钥）
+     Host personal-github 
+         HostName personal-github  
+         User git
+         IdentityFile ~/.ssh/id_rsa_new
      ```
 
-   - 局部配置：进入项目文件夹
+     可能出现的问题：无法连接到远程仓库
 
      ```
-     git config user.name "用户名"
-     git config user.email "邮箱"
+     Host github.com  #别名/匹配模式，根据远程仓库地址，匹配对应的Host配置
+         HostName ssh.github.com  #实际连接地址
+         User git
+         Port 443
+         IdentityFile ~/.ssh/id_rsa_new
+         TCPKeepAlive yes
+         IdentitiesOnly yes
      ```
 
-5. ### 进入文件夹
+   - 将公钥拷贝到 GitHub 上
 
-   - 初始化仓库：git init
-   - 暂存文件：git add .
-   - 提交文件：git commit -m "说明"
-   - 新建分支：git checkout -b (分支名称)
-   - 连接远程仓库：git remote add origin (远程仓库SSH链接)
-   - 推送：git push -u origin main(第一次需要设置上游分支，后续直接 git push)
-   - 提示：开始一个git文件夹有两种，一种是上文提到的初始化开始，另一种是直接使用克隆git clone <远程仓库SSH链接>,这时后面就不需要连接远程仓库操作了
+   - SSH测试
+
+     ```
+     ssh -T git@github.com
+     ```
+
+6. ### 关联本地和远程仓库
+
+   - 第一种方法：为本地仓库添加远程仓库
+
+     1. 初始化仓库：git init
+
+     2. 将想要上传的文件放到这个本地仓库文件夹下
+
+     3. 暂存文件：git add .
+
+        如果出现这个警告“LF will be replaced by CRLF the next time Git touches it”，可以直接忽略
+
+     4. 提交文件：git commit -m "说明"
+
+     5. 新建分支：git checkout -b (分支名称)
+
+     6. 查看远程仓库信息：git remote -v
+
+     7. 连接远程仓库：git remote add origin (远程仓库SSH链接)
+
+     8. 推送：git push -u origin main(第一次需要设置上游分支，后续直接 git push)
+
+   - 第二种方法：克隆远程仓库到本地
+
+     1. 克隆远程仓库：git clone 远程仓库的SSH地址
+
+        这样就跟 GitHub 上的远程仓库相关联了，所以就省去了 git init、git remote add 等操作
+
+     2. 将想要上传的文件放到这个本地仓库文件夹下
+
+     3. 暂存文件：git add .
+
+     4. 提交文件：git commit -m "说明"
+
+     5. 新建分支：git checkout -b (分支名称)
+
+     6. 推送：git push -u origin main(第一次需要设置上游分支，后续直接 git push)
 
 ## Conventional Commits 约定式提交规范
 

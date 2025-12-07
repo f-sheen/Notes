@@ -461,4 +461,62 @@ if (x is T y)
 
   
 
-- 问题二：
+- **问题二：AddSingleton() 和 AddSingleton<T>(factory) 有什么区别？**
+
+  - AddSingleton(instance)：直接注册一个已有实例
+  - AddSingleton<T>(factory)：每次需要时调用工厂方法
+
+- **问题三：****映射关系**
+
+  1. 注册服务
+
+     ```c#
+     var dbConfig = new ConnectionConfig { ... };
+     services.AddSingleton(dbConfig);
+     ```
+
+     - 这行代码将一个具体的 ConnectionConfig 对象实例注册到 DI 容器中
+
+     - 注册的服务类型（Service Type）是 ConnectionConfig
+
+     - 内部相当于：services.AddSingleton<ConnectionConfig>(dbConfig);
+
+     - 此时，DI 容器内部维护了一个映射表（简化表示）
+
+       ```
+       Service Type          → Instance
+       ──────────────────────────────────────────────
+       ConnectionConfig      → dbConfig (创建的对象)
+       IHostedService        → DbInitializer (稍后注册)
+       IQuestDb              → 工厂方法 (稍后注册)
+       ```
+
+  2. 托管服务
+
+     ```c#
+     services.AddHostedService<DbInitializer>();
+     这行代码等价于：
+     services.AddSingleton<IHostedService, DbInitializer>();
+     ```
+
+     - 它告诉容器：“DbInitializer 是一个 IHostedService，生命周期是 Singleton”
+
+     - 当应用启动时，.NET 会尝试 构造 DbInitializer 的实例
+
+     - 构造函数是：
+
+       ```c#
+       public DbInitializer(ConnectionConfig dbConfig)
+       ```
+
+       
+
+     - 容器发现：“哦，它需要一个 ConnectionConfig！”
+
+     - 于是去服务注册表中查找：有没有注册过 ConnectionConfig？
+
+     - 有！ 就是你前面 AddSingleton(dbConfig) 注册的那个
+
+     - 于是容器自动把 dbConfig 传入构造函数
+
+- 问题四：
