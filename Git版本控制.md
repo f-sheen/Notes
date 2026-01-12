@@ -1,5 +1,7 @@
 # Git版本控制
 
+## 1、基础配置
+
 1. ### 安装Git
 
 2. ### 注册远程仓库（GitHub、Gitee、GitCode、GitLab）
@@ -92,7 +94,7 @@
 
      6. 推送：git push -u origin main(第一次需要设置上游分支，后续直接 git push)
 
-## Conventional Commits 约定式提交规范
+## 2、Conventional Commits 约定式提交规范
 
 ​	Conventional Commits 是一种用于给提交信息增加人机可读含义的规范。约定式提交规范是一种基于消息的轻量级约定。它提供了一组用于创建清晰的提交历史的简单规则；这使得编写基于规范的自动化工具变得更容易。这个约定与 SemVer 相吻合，在提交信息中描述新特性、bug 修复和破坏性变更。
 提交说明的结构如下所示：
@@ -190,3 +192,152 @@ BREAKING CHANGE
 - 在提交说明中，可以使用feat和fix之外的类型。
 - 工具的实现必须不区分大小写地解析构成约定式提交的信息单元，只有BREAKING CHANGE 必须是大写的。
 - 可以在类型/作用域前缀之后，:之前，附加!字符，以进一步提醒注意破坏性变更。当有!前缀时，正文或脚注内必须包含BREAKING CHANGE: description
+
+## 3、覆盖本地分支为远程分支
+
+```bash
+# 1. 显示已有的本地修改
+git status
+
+# 2. 切换到 dev 分支（如果本地还没有，会自动创建跟踪分支）
+git checkout dev
+
+# 3. 获取远程最新信息
+git fetch origin
+
+# 4. 强制将本地 dev 重置为远程 origin/dev 的状态
+git reset --hard origin/dev
+
+# 5. （可选）清理本地新增的、未被 Git 跟踪的文件和目录
+git clean -fd
+```
+
+## 4、创建新分支开发并推送流程
+
+1. #### 确保 dev 分支是最新的
+
+   ```bash
+   # 1. 切换到 dev 分支
+   git checkout dev
+   
+   # 2. 拉取远程最新的 dev 代码
+   git pull origin dev
+   
+   # 3. 查看当前分支（确保在 dev）
+   git branch -v
+   ```
+
+2. #### 创建功能分支
+
+   ```bash
+   # 基于最新的 dev 创建新分支
+   git checkout -b feat/workstation-image-upload
+   
+   # 分支命名规范：
+   # feat/xxx     - 新功能
+   # fix/xxx      - 修复bug
+   # hotfix/xxx   - 紧急修复
+   # refactor/xxx - 重构
+   # docs/xxx     - 文档更新
+   
+   # 查看分支
+   git branch
+   # * feat/workstation-image-upload
+   #   dev
+   #   main
+   ```
+
+3. #### 在新分支上开发
+
+   ```bash
+   # 现在你可以安全地开发新功能
+   # 所有的改动都在 feat/workstation-image-upload 分支上
+   # 不会影响 dev 和 main
+   
+   # 正常进行开发、提交
+   git add .
+   git commit -m "feat: 添加工位图片上传组件"
+   git commit -m "feat: 添加上传接口调用"
+   git commit -m "fix: 修复图片上传大小限制"
+   ```
+
+4. #### 完成开发后合并到 dev
+
+   ```bash
+   # 1. 确保功能测试完成
+   # 2. 切换到 dev 分支
+   git checkout dev
+   
+   # 3. 拉取最新的 dev（别人可能更新了）
+   git pull origin dev
+   
+   # 4. 合并功能分支（推荐使用 merge）
+   git merge feat/workstation-image-upload
+   
+   # 或者使用 rebase（保持线性历史）
+   git checkout feat/workstation-image-upload
+   git rebase dev
+   git checkout dev
+   git merge feat/workstation-image-upload
+   
+   # 5. 推送到远程 dev
+   git push origin dev
+   ```
+
+5. #### 清理分支
+
+   ```bash
+   # 删除本地功能分支
+   git branch -d feat/workstation-image-upload
+   
+   # 删除远程功能分支（如果有推送）
+   git push origin --delete feat/workstation-image-upload
+   ```
+
+## 5、分支命名规范
+
+- 主分支（main/master）
+
+  - 名称：main或master
+  - 用途：用于存放稳定的、可发布的代码
+  - 规则：只有一个主分支、不允许直接在主分支上提交代码，只能通过合并其他分支来更新
+
+- 开发分支（develop）
+
+  - 名称：develop
+  - 用途：用于集成开发中的功能分支
+  - 规则：从 main 分支创建、功能开发完成后，合并到 develop 分支
+
+- 功能分支（feat）
+
+  - 名称：feature/<feature-name> 或 feat/<feature-name>
+  - 用途：用于开发新功能
+  - 规则：从 develop 分支创建、功能开发完成后，合并回 develop 分支
+
+- 修复分支（fix）
+
+  - 名称：bugfix/ 或 fix/
+  - 用途：用于修复 bug
+  - 规则：从develop分支创建、修复完成后，合并回 develop 分支
+
+- 发布分支（release）
+
+  - 名称：release/
+  - 用途：用于准备发布新版本
+  - 规则：从 develop 分支创建、发布完成后，合并到 main 和 develop 分支
+
+- 热修复分支(hotfix)
+
+  - 名称：hotfix/
+  - 用途：用于紧急修复生产环境中的 bug
+  - 规则：从 main 分支创建、修复完成后，合并到 main 和 develop 分支
+
+- 支持分支（support）
+
+  - 名称：support/
+  - 用途：用于维护旧版本
+  - 规则：从 main 分支创建
+
+  使用小写字母和连字符：避免使用空格或特殊字符。
+  正确：feature/user-authentication
+  错误：feature/User Authentication

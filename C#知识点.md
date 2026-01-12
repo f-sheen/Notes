@@ -466,7 +466,7 @@ if (x is T y)
   - AddSingleton(instance)：直接注册一个已有实例
   - AddSingleton<T>(factory)：每次需要时调用工厂方法
 
-- **问题三：****映射关系**
+- **问题三：映射关系**
 
   1. 注册服务
 

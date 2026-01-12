@@ -50,4 +50,11 @@
 
   最后通过npm run build-production，生成dist文件夹，通过全局安装http-server这个npm包，进入dist文件夹打开cmd，执行http-server命令
 
-## 2、
+## 2、空值合并运算符??和逻辑或||
+
+1. 空值合并运算符??
+   - 触发条件：仅当左侧为 null 或 undefined 时返回右侧值
+2. 逻辑或||
+   - 触发条件：左侧为 假值 时返回右侧值，假值有false、0、""、NaN、null、undefined
+
+3、
