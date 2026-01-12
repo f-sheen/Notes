@@ -189,7 +189,97 @@ int compare = ts1.CompareTo(ts2);               // 1 (大于)
 bool isGreater = ts1 > ts2;                     // true
 ```
 
-## 5、项目引用、Using和DependsOn
+## 7、IList和List
+
+- IList：接口，定义了列表应该具备的功能，不能直接实例化
+
+  使用场景：对外
+
+  - 方法参数
+
+    ```c#
+    public void ProcessData(IList<int> data)
+    {
+        foreach (var item in data) { }
+    }
+    
+    // 调用方有更多选择：
+    ProcessData(new List<int> {1, 2, 3});
+    ProcessData(new int[] {1, 2, 3});      // 数组也实现了IList<T>
+    ProcessData(new ObservableCollection<int> {1, 2, 3});
+    ProcessData(new ReadOnlyCollection<int>(new List<int> {1, 2, 3}));
+    ```
+
+  - 返回值
+
+    ```c#
+    public IList<string> GetNames()
+    {
+        var internalList = new List<string>();
+        // ... 填充数据
+        return internalList.AsReadOnly();  // 返回只读版本
+        // 或者直接返回：return internalList;
+    }
+    
+    // 调用方：
+    IList<string> names = GetNames();
+    // 无法知道内部用的是List还是其他实现
+    
+    ```
+
+  - 类字段/属性-支持依赖注入
+
+    ```c#
+    public class UserRepository
+    {
+        private readonly IList<User> _users;
+        
+        // 依赖注入：可以注入不同的IList实现
+        public UserRepository(IList<User> users = null)
+        {
+            _users = users ?? new List<User>();
+        }
+        
+        // 对外暴露接口
+        public IList<User> GetAllUsers() => new ReadOnlyCollection<User>(_users);
+    }
+    ```
+
+  - 公共API/库开发
+
+    ```c#
+    public interface IDataService
+    {
+        IList<DataItem> GetItems();  // 而不是 List<DataItem>
+    }
+    ```
+
+  
+
+- List：具体实现类，提供了IList所有方法的具体实现，可以直接实例化
+
+  使用场景：对内
+
+  - 内部实现-需要具体功能
+
+    ```c#
+    public class DataProcessor
+    {
+        // ✅ 内部使用具体类
+        private List<Data> _internalCache = new List<Data>();
+        
+        // 需要使用List特有方法
+        public void LoadBulkData(IEnumerable<Data> items)
+        {
+            _internalCache.Clear();
+            _internalCache.AddRange(items);  
+            _internalCache.Sort();          
+            _internalCache.TrimExcess();     
+        }
+     }
+    ```
+
+## 6、项目引用、Using和DependsOn
 
 ​	项目引用是Using和DependsOn基础，没有项目引用就无法访问对方的代码
 
